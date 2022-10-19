@@ -10,7 +10,9 @@ use std::error::Error;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use crate::{bdk_to_electrsd_addr, bdk_to_electrsd_amt, electrsd_to_bdk_script, generate_random_ext_privkey};
+use crate::{
+    bdk_to_electrsd_addr, bdk_to_electrsd_amt, electrsd_to_bdk_script, generate_random_ext_privkey,
+};
 
 pub fn wallet_send_tx() -> Result<(), Box<dyn Error>> {
     // 0. setup background bitcoind process

@@ -1,18 +1,14 @@
-use bdk::bitcoin::{Transaction, Amount};
 use bdk::bitcoin::hashes::hex::ToHex;
-use bdk::bitcoin::util::bip32::{DerivationPath, ExtendedPubKey, Fingerprint};
-use bdk::blockchain::Blockchain;
+use bdk::bitcoin::util::bip32::{ExtendedPubKey, Fingerprint};
+use bdk::bitcoin::Transaction;
 use bdk::blockchain::rpc::Auth;
-use bdk::miniscript::psbt::PsbtExt;
-use bdk::signer::{InputSigner, SignerWrapper};
+use bdk::blockchain::Blockchain;
+use bdk::signer::InputSigner;
 use bdk::template::Bip84Public;
 use bdk::{
-    bitcoin::{secp256k1::Secp256k1, Network},
+    bitcoin::Network,
     blockchain::{ConfigurableBlockchain, RpcBlockchain, RpcConfig},
-    keys::{
-        DerivableKey,
-    },
-    signer::{SignerOrdering, TransactionSigner},
+    signer::SignerOrdering,
     sled,
     wallet::AddressIndex,
     KeychainKind, SignOptions, SyncOptions, Wallet,
@@ -21,7 +17,7 @@ use electrsd::bitcoind::bitcoincore_rpc::RpcApi;
 use std::path::Path;
 use std::{error::Error, path::PathBuf, str::FromStr, sync::Arc};
 
-use crate::{bdk_to_electrsd_addr, electrsd_to_bdk_script, bdk_to_electrsd_amt};
+use crate::{bdk_to_electrsd_addr, electrsd_to_bdk_script};
 
 pub fn watchonly_wallet_send_all<T: InputSigner + 'static>(
     signer: T,
@@ -66,7 +62,11 @@ pub fn watchonly_wallet_send_all<T: InputSigner + 'static>(
 
     println!("creating wallet");
     let mut wallet = Wallet::new(
-        Bip84Public(xpub.clone(), xpub_parent_fingerprint, KeychainKind::External),
+        Bip84Public(
+            xpub.clone(),
+            xpub_parent_fingerprint,
+            KeychainKind::External,
+        ),
         Some(Bip84Public(
             xpub.clone(),
             xpub_parent_fingerprint,
@@ -137,7 +137,10 @@ pub fn watchonly_wallet_send_all<T: InputSigner + 'static>(
     wallet.sign(&mut psbt, SignOptions::default())?;
 
     let tx: Transaction = psbt.extract_tx();
-    println!("Finished creating tx: {}", bdk::bitcoin::consensus::serialize(&tx).to_hex());
+    println!(
+        "Finished creating tx: {}",
+        bdk::bitcoin::consensus::serialize(&tx).to_hex()
+    );
     println!("Remaining BDK wallet balance: {}", wallet.get_balance()?);
     blockchain.broadcast(&tx)?;
     println!("Finished broadcasting tx: {}", tx.ntxid());

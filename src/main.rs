@@ -5,16 +5,14 @@ use bdk::{
         Network,
     },
     descriptor::{DescriptorXKey, Wildcard},
-    keys::{
-        bip39::{Language, Mnemonic, WordCount},
-        DerivableKey, GeneratableKey, GeneratedKey,
-    },
-    miniscript::Segwitv0,
+    keys::DerivableKey,
     signer::SignerWrapper,
 };
 use clap::Parser;
 use std::{error::Error, str::FromStr};
-use wallet_operation_test::{send_bitcoin::wallet_send_tx, watchonly::watchonly_wallet_send_all, generate_random_ext_privkey};
+use wallet_operation_test::{
+    generate_random_ext_privkey, send_bitcoin::wallet_send_tx, watchonly::watchonly_wallet_send_all,
+};
 
 #[derive(Debug, Parser)]
 #[clap(name = "wallet_operation_test", author, about, version)]
@@ -37,8 +35,11 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .unwrap()
                 .derive_priv(&secp, &path)?;
             let xpub: ExtendedPubKey = ExtendedPubKey::from_priv(&secp, &xprv);
-            let fingerprint =
-                seed.into_extended_key()?.into_xprv(Network::Regtest).unwrap().fingerprint(&secp);
+            let fingerprint = seed
+                .into_extended_key()?
+                .into_xprv(Network::Regtest)
+                .unwrap()
+                .fingerprint(&secp);
 
             // on-memory InputSigner for testing.
             let dummy_signer = {
@@ -47,7 +48,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     origin: Some((fingerprint, bip84path)),
                     xkey: xprv,
                     derivation_path: DerivationPath::from_str("m/0").unwrap(),
-                    wildcard: Wildcard::Unhardened
+                    wildcard: Wildcard::Unhardened,
                 };
                 SignerWrapper::<DescriptorXKey<ExtendedPrivKey>>::new(
                     signer,
@@ -55,8 +56,13 @@ fn main() -> Result<(), Box<dyn Error>> {
                 )
             };
 
-            watchonly_wallet_send_all(dummy_signer, xpub, fingerprint, "watchonly_wallet".to_string())
-        },
+            watchonly_wallet_send_all(
+                dummy_signer,
+                xpub,
+                fingerprint,
+                "watchonly_wallet".to_string(),
+            )
+        }
         _ => panic!("mode must be one of send_bitcoin, send_from_watchonly"),
     }
 }

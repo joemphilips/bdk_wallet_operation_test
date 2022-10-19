@@ -1,7 +1,14 @@
 use std::error::Error;
 use std::str::FromStr;
 
-use bdk::{bitcoin::hashes::hex::{FromHex, ToHex}, keys::{bip39::{Mnemonic, Language, WordCount}, GeneratedKey, GeneratableKey}, miniscript::Segwitv0};
+use bdk::{
+    bitcoin::hashes::hex::{FromHex, ToHex},
+    keys::{
+        bip39::{Language, Mnemonic, WordCount},
+        GeneratableKey, GeneratedKey,
+    },
+    miniscript::Segwitv0,
+};
 
 pub mod send_bitcoin;
 pub mod watchonly;
@@ -24,8 +31,8 @@ pub(crate) fn electrsd_to_bdk_script(
     bdk::bitcoin::Script::from_hex(&c).unwrap()
 }
 
-
-pub fn generate_random_ext_privkey() -> Result<(GeneratedKey<Mnemonic, Segwitv0>, Option<String>), Box<dyn Error>> {
+pub fn generate_random_ext_privkey(
+) -> Result<(GeneratedKey<Mnemonic, Segwitv0>, Option<String>), Box<dyn Error>> {
     let password = Some("Random password".to_string());
     let mnemonic = Mnemonic::generate((WordCount::Words12, Language::English)).unwrap();
     Ok((mnemonic, password))
