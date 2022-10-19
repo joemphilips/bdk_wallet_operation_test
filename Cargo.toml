@@ -13,8 +13,6 @@ name = "wallet_operation_test"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bdk = { version = "0.23.0", features = ["all-keys", "key-value-db", "rpc", "async-trait" ], default-features = false }
+bdk = { version = "0.23.0", features = ["all-keys", "key-value-db", "rpc", "hardware-signer" ], default-features = false }
 clap = { version = "4.0.15", features = ["derive", "env"] }
 electrsd = { version = "0.21.1", features = ["bitcoind_22_0"] }
-rand = "0.8.5"
-tokio = { version = "1.21.2", features = ["macros", "rt-multi-thread"] }

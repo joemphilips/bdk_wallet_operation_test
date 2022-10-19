@@ -1,65 +1,52 @@
+use bdk::bitcoin::secp256k1::Secp256k1;
+use bdk::bitcoin::{Amount, Network};
+use bdk::blockchain::rpc::Auth;
+use bdk::blockchain::{Blockchain, ConfigurableBlockchain, RpcBlockchain, RpcConfig};
+use bdk::template::Bip84;
+use bdk::wallet::{wallet_name_from_descriptor, AddressIndex};
+use bdk::{sled, KeychainKind, SignOptions, SyncOptions, Wallet};
+use electrsd::bitcoind::bitcoincore_rpc::RpcApi;
 use std::error::Error;
 use std::path::PathBuf;
 use std::str::FromStr;
-use bdk::bitcoin::secp256k1::Secp256k1;
-use rand::prelude::*;
-use bdk::blockchain::{RpcConfig, RpcBlockchain, ConfigurableBlockchain, Blockchain};
-use bdk::blockchain::rpc::Auth;
-use bdk::descriptor::Segwitv0;
-use bdk::keys::{DerivableKey, GeneratableKey};
-use bdk::template::Bip84;
-use bdk::wallet::{wallet_name_from_descriptor, AddressIndex};
-use bdk::{KeychainKind, Wallet, sled, SignOptions, SyncOptions};
-use bdk::bitcoin::{Network, Amount};
-use bdk::keys::bip39::{Language, Mnemonic, WordCount};
-use electrsd::bitcoind::bitcoincore_rpc::RpcApi;
 
-use crate::{electrsd_to_bdk_script, bdk_to_electrsd_addr, bdk_to_electrsd_amt};
+use crate::{bdk_to_electrsd_addr, bdk_to_electrsd_amt, electrsd_to_bdk_script, generate_random_ext_privkey};
 
-fn generate_random_ext_privkey() -> Result<impl DerivableKey<Segwitv0> + Clone, Box<dyn Error>> {
-    let entropy: [u8; 32] =
-        random();
-    let password = Some("Random password".to_string());
-    let mnemonic =
-        Mnemonic::generate_with_entropy((WordCount::Words12, Language::English), entropy).unwrap();
-
-    Ok((mnemonic, password))
-}
-
-
-pub async fn wallet_send_tx() -> Result<(), Box<dyn Error>> {
-
+pub fn wallet_send_tx() -> Result<(), Box<dyn Error>> {
     // 0. setup background bitcoind process
-    let bitcoind =
-        {
-            let bitcoind_conf = electrsd::bitcoind::Conf::default();
-            let exe = electrsd::bitcoind::downloaded_exe_path().expect("We should always have downloaded path");
-            electrsd::bitcoind::BitcoinD::with_conf(exe, &bitcoind_conf).unwrap()
-        };
-    let bitcoind_auth =
-        Auth::Cookie {
-            file: bitcoind.params.cookie_file.clone()
-        };
+    println!(">> Setting up bitcoind");
+    let bitcoind = {
+        let bitcoind_conf = electrsd::bitcoind::Conf::default();
+        let exe = electrsd::bitcoind::downloaded_exe_path()
+            .expect("We should always have downloaded path");
+        electrsd::bitcoind::BitcoinD::with_conf(exe, &bitcoind_conf).unwrap()
+    };
+    let bitcoind_auth = Auth::Cookie {
+        file: bitcoind.params.cookie_file.clone(),
+    };
     let core_address = bitcoind.client.get_new_address(None, None)?;
     bitcoind.client.generate_to_address(101, &core_address)?;
+    println!(">> bitocoind setup complete");
+    println!(
+        "Available coins in Core wallet : {}",
+        bitcoind.client.get_balance(None, None)?
+    );
 
-    // 1. instantiate wallet.
+    // 1. instantiate the wallet.
     let xprv = generate_random_ext_privkey()?;
 
-    let wallet_name =
-        wallet_name_from_descriptor(
-            Bip84(xprv.clone(), KeychainKind::External),
-            Some(Bip84(xprv.clone(), KeychainKind::Internal)),
-            Network::Regtest,
-            &Secp256k1::new()
-        )?;
-    let datadir =
-        {
+    let wallet_name = wallet_name_from_descriptor(
+        Bip84(xprv.clone(), KeychainKind::External),
+        Some(Bip84(xprv.clone(), KeychainKind::Internal)),
+        Network::Regtest,
+        &Secp256k1::new(),
+    )?;
+    let database = {
+        let datadir = {
             let mut d = PathBuf::from_str("/tmp/")?;
             d.push(".bdk-example");
             d
         };
-    let database = {
         let d = sled::open(datadir)?;
         d.open_tree(wallet_name.clone())?
     };
@@ -67,22 +54,21 @@ pub async fn wallet_send_tx() -> Result<(), Box<dyn Error>> {
         Bip84(xprv.clone(), KeychainKind::External),
         Some(Bip84(xprv.clone(), KeychainKind::Internal)),
         Network::Regtest,
-        database
+        database,
     )?;
 
     // 2. sync wallet
 
-    let blockchain =
-        {
-            let rpc_config = RpcConfig {
-                url: bitcoind.params.rpc_socket.to_string(),
-                auth: bitcoind_auth,
-                network: Network::Regtest,
-                wallet_name,
-                sync_params: None,
-            };
-            RpcBlockchain::from_config(&rpc_config)?
+    let blockchain = {
+        let rpc_config = RpcConfig {
+            url: bitcoind.params.rpc_socket.to_string(),
+            auth: bitcoind_auth,
+            network: Network::Regtest,
+            wallet_name,
+            sync_params: None,
         };
+        RpcBlockchain::from_config(&rpc_config)?
+    };
 
     wallet.sync(&blockchain, SyncOptions::default())?;
     // check the wallet has spendable balance.
@@ -90,10 +76,15 @@ pub async fn wallet_send_tx() -> Result<(), Box<dyn Error>> {
         let balance = wallet.get_balance()?;
         assert!(balance.confirmed == 0);
     };
+    println!(">> BDK wallet setup complete.");
+    println!(
+        "Available initial coins in BDK wallet : {} sats",
+        wallet.get_balance()?
+    );
+    println!("\n>> Sending coins: Core --> BDK, 10 BTC");
 
     // 3. prepare wallet balance.
-    let bdk_new_addr =
-        bdk_to_electrsd_addr(wallet.get_address(AddressIndex::New)?.address);
+    let bdk_new_addr = bdk_to_electrsd_addr(wallet.get_address(AddressIndex::New)?.address);
     bitcoind.client.send_to_address(
         &bdk_new_addr,
         bdk_to_electrsd_amt(Amount::from_btc(10.0)?),
@@ -102,21 +93,28 @@ pub async fn wallet_send_tx() -> Result<(), Box<dyn Error>> {
         None,
         None,
         None,
-        None
+        None,
     )?;
     bitcoind.client.generate_to_address(3, &bdk_new_addr)?;
     wallet.sync(&blockchain, SyncOptions::default())?;
 
+    println!(">> Received coins in BDK wallet");
+    println!(
+        "Available balance in BDK wallet: {} sats",
+        wallet.get_balance()?
+    );
+
     // 4. build and send tx from the wallet
+    println!("\n>> Sending coins: BDK --> Core, 5 BTC");
     let mut txb = Wallet::build_tx(&wallet);
     let core_spk_bdk =
         // needs conversion between crates.
           electrsd_to_bdk_script(core_address.script_pubkey());
-      txb.set_recipients(vec![(core_spk_bdk, 500000)]);
-    let (mut psbt, _tx_details)= txb.finish()?;
+    txb.set_recipients(vec![(core_spk_bdk, 500000)]);
+    let (mut psbt, _tx_details) = txb.finish()?;
 
     {
-        let sign_options= SignOptions {
+        let sign_options = SignOptions {
             assume_height: None,
             ..Default::default()
         };
