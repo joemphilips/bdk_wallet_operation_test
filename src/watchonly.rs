@@ -107,18 +107,7 @@ pub fn watchonly_wallet_send_all<T: InputSigner + 'static>(
     );
     println!(">> preparing wallet funds");
     let bdk_new_addr = bdk_to_electrsd_addr(wallet.get_address(AddressIndex::New)?.address);
-    println!("sending wallet address {} from bitcoind", bdk_new_addr);
-    bitcoind.client.send_to_address(
-        &bdk_new_addr,
-        bdk_to_electrsd_amt(Amount::from_btc(0.1)?),
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-    )?;
-    bitcoind.client.generate_to_address(3, &bdk_new_addr)?;
+    bitcoind.client.generate_to_address(101, &bdk_new_addr)?;
     wallet.sync(&blockchain, SyncOptions::default())?;
     // check the wallet has spendable balance.
     {

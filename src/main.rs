@@ -31,7 +31,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             let secp = Secp256k1::new();
             let seed = generate_random_ext_privkey()?;
             let master_extkey = seed.clone().into_extended_key()?;
-            // let master_fingerprint = master_extkey.into_xprv(Network::Regtest).unwrap().fingerprint(&secp);
             let path = DerivationPath::from_str("m/84'/0'/0'")?;
             let xprv = master_extkey
                 .into_xprv(Network::Regtest)
@@ -39,15 +38,15 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .derive_priv(&secp, &path)?;
             let xpub: ExtendedPubKey = ExtendedPubKey::from_priv(&secp, &xprv);
             let fingerprint =
-                xprv.fingerprint(&secp);
+                seed.into_extended_key()?.into_xprv(Network::Regtest).unwrap().fingerprint(&secp);
 
             // on-memory InputSigner for testing.
             let dummy_signer = {
                 let bip84path = path;
                 let signer = DescriptorXKey::<ExtendedPrivKey> {
-                    origin: None,
-                    xkey: seed.into_extended_key()?.into_xprv(Network::Regtest).unwrap(),
-                    derivation_path: bip84path,
+                    origin: Some((fingerprint, bip84path)),
+                    xkey: xprv,
+                    derivation_path: DerivationPath::from_str("m/0").unwrap(),
                     wildcard: Wildcard::Unhardened
                 };
                 SignerWrapper::<DescriptorXKey<ExtendedPrivKey>>::new(
