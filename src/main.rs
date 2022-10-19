@@ -42,6 +42,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .fingerprint(&secp);
 
             // on-memory InputSigner for testing.
+            // In reality we should also add a signer with "m/1" derivation path to spend our
+            // change utxo, but it is not necessary in this test, since we are just spending once.
             let dummy_signer = {
                 let bip84path = path;
                 let signer = DescriptorXKey::<ExtendedPrivKey> {

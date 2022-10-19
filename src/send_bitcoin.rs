@@ -2,7 +2,7 @@ use bdk::bitcoin::secp256k1::Secp256k1;
 use bdk::bitcoin::{Amount, Network};
 use bdk::blockchain::rpc::Auth;
 use bdk::blockchain::{Blockchain, ConfigurableBlockchain, RpcBlockchain, RpcConfig};
-use bdk::template::Bip84;
+use bdk::template::{Bip84, DescriptorTemplate};
 use bdk::wallet::{wallet_name_from_descriptor, AddressIndex};
 use bdk::{sled, KeychainKind, SignOptions, SyncOptions, Wallet};
 use electrsd::bitcoind::bitcoincore_rpc::RpcApi;
@@ -36,6 +36,23 @@ pub fn wallet_send_tx() -> Result<(), Box<dyn Error>> {
 
     // 1. instantiate the wallet.
     let xprv = generate_random_ext_privkey()?;
+    let descriptor = Bip84(xprv.clone(), KeychainKind::External);
+    let change = Bip84(xprv.clone(), KeychainKind::Internal);
+    println!("*************************************\n");
+    println!("* These information are important for recovering your funds! please take a backup *");
+    println!("* wallet seedphrase: \"{}\"", xprv.clone().0.into_key());
+    if let Some(pass) = xprv.clone().1 {
+        println!("* password: \"{}\"", pass);
+    }
+    println!(
+        "* descriptor: \"{}\"",
+        descriptor.build(Network::Regtest)?.0
+    );
+    println!(
+        "* change descriptor: \"{}\"",
+        change.build(Network::Regtest)?.0
+    );
+    println!("*************************************\n");
 
     let wallet_name = wallet_name_from_descriptor(
         Bip84(xprv.clone(), KeychainKind::External),
