@@ -21,6 +21,7 @@ use crate::{bdk_to_electrsd_addr, electrsd_to_bdk_script};
 
 pub fn watchonly_wallet_send_all<T: InputSigner + 'static>(
     signer: T,
+    change_signer: T,
     xpub: ExtendedPubKey,
     xpub_parent_fingerprint: Fingerprint,
     wallet_name: String,
@@ -124,11 +125,18 @@ pub fn watchonly_wallet_send_all<T: InputSigner + 'static>(
         SignerOrdering(100),
         Arc::new(signer),
     );
+    wallet.add_signer(
+      KeychainKind::Internal,
+      SignerOrdering(100),
+      Arc::new(change_signer)
+    );
 
     let mut builder = wallet.build_tx();
-    builder
-        .drain_to(electrsd_to_bdk_script(core_address.script_pubkey()))
-        .drain_wallet();
+
+    let core_spk_bdk =
+        // needs conversion between crates.
+          electrsd_to_bdk_script(core_address.script_pubkey());
+    builder.set_recipients(vec![(core_spk_bdk, 500000)]);
 
     println!(">> signing psbt");
     let (mut psbt, _) = builder.finish().unwrap();
@@ -141,8 +149,9 @@ pub fn watchonly_wallet_send_all<T: InputSigner + 'static>(
         "Finished creating tx: {}",
         bdk::bitcoin::consensus::serialize(&tx).to_hex()
     );
-    println!("Remaining BDK wallet balance: {}", wallet.get_balance()?);
     blockchain.broadcast(&tx)?;
     println!("Finished broadcasting tx: {}", tx.ntxid());
+    wallet.sync(&blockchain, SyncOptions::default())?;
+    println!("Remaining BDK wallet balance: {}", wallet.get_balance()?);
     Ok(())
 }

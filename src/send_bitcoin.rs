@@ -33,6 +33,7 @@ pub fn wallet_send_tx() -> Result<(), Box<dyn Error>> {
         "Available coins in Core wallet : {}",
         bitcoind.client.get_balance(None, None)?
     );
+    let secp = &Secp256k1::new();
 
     // 1. instantiate the wallet.
     let xprv = generate_random_ext_privkey()?;
@@ -58,7 +59,7 @@ pub fn wallet_send_tx() -> Result<(), Box<dyn Error>> {
         Bip84(xprv.clone(), KeychainKind::External),
         Some(Bip84(xprv.clone(), KeychainKind::Internal)),
         Network::Regtest,
-        &Secp256k1::new(),
+        &secp,
     )?;
     let database = {
         let datadir = {

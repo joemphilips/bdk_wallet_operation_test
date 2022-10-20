@@ -28,9 +28,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         "send_from_watchonly" => {
             let secp = Secp256k1::new();
             let seed = generate_random_ext_privkey()?;
-            let master_extkey = seed.clone().into_extended_key()?;
             let path = DerivationPath::from_str("m/84'/0'/0'")?;
-            let xprv = master_extkey
+            let xprv = seed.clone().into_extended_key()?
                 .into_xprv(Network::Regtest)
                 .unwrap()
                 .derive_priv(&secp, &path)?;
@@ -42,14 +41,23 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .fingerprint(&secp);
 
             // on-memory InputSigner for testing.
-            // In reality we should also add a signer with "m/1" derivation path to spend our
-            // change utxo, but it is not necessary in this test, since we are just spending once.
             let dummy_signer = {
-                let bip84path = path;
                 let signer = DescriptorXKey::<ExtendedPrivKey> {
-                    origin: Some((fingerprint, bip84path)),
+                    origin: Some((fingerprint, path.clone())),
                     xkey: xprv,
                     derivation_path: DerivationPath::from_str("m/0").unwrap(),
+                    wildcard: Wildcard::Unhardened,
+                };
+                SignerWrapper::<DescriptorXKey<ExtendedPrivKey>>::new(
+                    signer,
+                    bdk::signer::SignerContext::Segwitv0,
+                )
+            };
+            let dummy_change_signer = {
+                let signer = DescriptorXKey::<ExtendedPrivKey> {
+                    origin: Some((fingerprint, path)),
+                    xkey: xprv,
+                    derivation_path: DerivationPath::from_str("m/1").unwrap(),
                     wildcard: Wildcard::Unhardened,
                 };
                 SignerWrapper::<DescriptorXKey<ExtendedPrivKey>>::new(
@@ -60,6 +68,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             watchonly_wallet_send_all(
                 dummy_signer,
+                dummy_change_signer,
                 xpub,
                 fingerprint,
                 "watchonly_wallet".to_string(),
