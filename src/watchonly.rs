@@ -1,10 +1,10 @@
 use bdk::bitcoin::hashes::hex::ToHex;
-use bdk::bitcoin::util::bip32::{ExtendedPubKey, Fingerprint};
+use bdk::bitcoin::util::bip32::{ExtendedPubKey, Fingerprint, ExtendedPrivKey};
 use bdk::bitcoin::Transaction;
 use bdk::blockchain::rpc::Auth;
 use bdk::blockchain::Blockchain;
 use bdk::signer::InputSigner;
-use bdk::template::Bip84Public;
+use bdk::template::{Bip84Public};
 use bdk::{
     bitcoin::Network,
     blockchain::{ConfigurableBlockchain, RpcBlockchain, RpcConfig},
@@ -14,27 +14,17 @@ use bdk::{
     KeychainKind, SignOptions, SyncOptions, Wallet,
 };
 use electrsd::bitcoind::bitcoincore_rpc::RpcApi;
-use std::path::Path;
 use std::{error::Error, path::PathBuf, str::FromStr, sync::Arc};
 
-use crate::{bdk_to_electrsd_addr, electrsd_to_bdk_script};
+use crate::wallet_backup::WalletBackupData;
+use crate::{bdk_to_electrsd_addr, electrsd_to_bdk_script, get_bip84_public_descriptor_templates};
 
 pub fn watchonly_wallet_send_all<T: InputSigner + 'static>(
     signer: T,
     change_signer: T,
-    xpub: ExtendedPubKey,
-    xpub_parent_fingerprint: Fingerprint,
-    wallet_name: String,
+    mut wallet_backup: WalletBackupData,
+    datadir: PathBuf,
 ) -> Result<(), Box<dyn Error>> {
-    let datadir = {
-        let mut d = PathBuf::from_str("/tmp/")?;
-        d.push("watchonly.bdk-example");
-        d
-    };
-    if Path::exists(&datadir) {
-        std::fs::remove_dir_all(&datadir)?;
-    }
-
     // 0. setup background bitcoind process
     println!(">> Setting up bitcoind");
     let bitcoind = {
@@ -56,26 +46,24 @@ pub fn watchonly_wallet_send_all<T: InputSigner + 'static>(
     println!("creating xpub");
 
     let database = {
-        println!("creating db in : {}", datadir.to_str().unwrap());
-        let d = sled::open(datadir)?;
-        d.open_tree(wallet_name.clone())?
+        let mut db_path = datadir.clone();
+        db_path.push("wallet.db");
+        println!("creating db in : {}", db_path.to_str().unwrap());
+        let d = sled::open(db_path)?;
+        d.open_tree(wallet_backup.get_wallet_name())?
     };
 
     println!("creating wallet");
-    let mut wallet = Wallet::new(
-        Bip84Public(
-            xpub.clone(),
-            xpub_parent_fingerprint,
-            KeychainKind::External,
-        ),
-        Some(Bip84Public(
-            xpub.clone(),
-            xpub_parent_fingerprint,
-            KeychainKind::Internal,
-        )),
-        Network::Regtest,
-        database,
-    )?;
+    let mut wallet =
+      {
+        let (d, change_d) = wallet_backup.descriptors[0].clone();
+        Wallet::new(
+          d,
+          change_d,
+          Network::Regtest,
+          database,
+        )?
+      };
     println!(">> watch-only wallet created successfully");
 
     // 2. sync wallet
@@ -93,7 +81,7 @@ pub fn watchonly_wallet_send_all<T: InputSigner + 'static>(
             url: bitcoind.params.rpc_socket.to_string(),
             auth: bitcoind_auth,
             network: Network::Regtest,
-            wallet_name,
+            wallet_name: wallet_backup.get_wallet_name(),
             sync_params: None,
         };
         RpcBlockchain::from_config(&rpc_config)?
