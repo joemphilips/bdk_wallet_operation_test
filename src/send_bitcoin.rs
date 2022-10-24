@@ -1,9 +1,8 @@
-use bdk::bitcoin::secp256k1::Secp256k1;
 use bdk::bitcoin::{Amount, Network};
 use bdk::blockchain::rpc::Auth;
 use bdk::blockchain::{Blockchain, ConfigurableBlockchain, RpcBlockchain, RpcConfig};
 use bdk::template::{Bip84, DescriptorTemplate};
-use bdk::wallet::{AddressIndex};
+use bdk::wallet::AddressIndex;
 use bdk::{sled, KeychainKind, SignOptions, SyncOptions, Wallet};
 use electrsd::bitcoind::bitcoincore_rpc::RpcApi;
 use std::error::Error;
@@ -11,7 +10,8 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use crate::{
-    bdk_to_electrsd_addr, bdk_to_electrsd_amt, electrsd_to_bdk_script, generate_random_ext_privkey, get_bip84_templates, get_wallet_name,
+    bdk_to_electrsd_addr, bdk_to_electrsd_amt, electrsd_to_bdk_script, generate_random_ext_privkey,
+    get_bip84_templates, get_wallet_name,
 };
 
 pub fn wallet_send_tx() -> Result<(), Box<dyn Error>> {
@@ -36,8 +36,7 @@ pub fn wallet_send_tx() -> Result<(), Box<dyn Error>> {
 
     // 1. instantiate the wallet.
     let xprv = generate_random_ext_privkey()?;
-    let (descriptor, change) =
-      get_bip84_templates(&xprv);
+    let (descriptor, change) = get_bip84_templates(&xprv);
     println!("*************************************\n");
     println!("* These information are important for recovering your funds! please take a backup *");
     println!("* wallet seedphrase: \"{}\"", xprv.clone().0.into_key());

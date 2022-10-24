@@ -1,10 +1,10 @@
 use bdk::bitcoin::hashes::hex::ToHex;
-use bdk::bitcoin::util::bip32::{ExtendedPubKey, Fingerprint, ExtendedPrivKey};
+
 use bdk::bitcoin::Transaction;
 use bdk::blockchain::rpc::Auth;
 use bdk::blockchain::Blockchain;
 use bdk::signer::InputSigner;
-use bdk::template::{Bip84Public};
+
 use bdk::{
     bitcoin::Network,
     blockchain::{ConfigurableBlockchain, RpcBlockchain, RpcConfig},
@@ -14,12 +14,12 @@ use bdk::{
     KeychainKind, SignOptions, SyncOptions, Wallet,
 };
 use electrsd::bitcoind::bitcoincore_rpc::RpcApi;
-use std::{error::Error, path::PathBuf, str::FromStr, sync::Arc};
+use std::{error::Error, path::PathBuf, sync::Arc};
 
 use crate::wallet_backup::WalletBackupData;
-use crate::{bdk_to_electrsd_addr, electrsd_to_bdk_script, get_bip84_public_descriptor_templates};
+use crate::{bdk_to_electrsd_addr, electrsd_to_bdk_script};
 
-pub fn watchonly_wallet_send_all<T: InputSigner + 'static>(
+pub fn watchonly_wallet_send_example<T: InputSigner + 'static>(
     signer: T,
     change_signer: T,
     mut wallet_backup: WalletBackupData,
@@ -54,16 +54,10 @@ pub fn watchonly_wallet_send_all<T: InputSigner + 'static>(
     };
 
     println!("creating wallet");
-    let mut wallet =
-      {
+    let mut wallet = {
         let (d, change_d) = wallet_backup.descriptors[0].clone();
-        Wallet::new(
-          d,
-          change_d,
-          Network::Regtest,
-          database,
-        )?
-      };
+        Wallet::new(d, change_d, Network::Regtest, database)?
+    };
     println!(">> watch-only wallet created successfully");
 
     // 2. sync wallet
@@ -114,9 +108,9 @@ pub fn watchonly_wallet_send_all<T: InputSigner + 'static>(
         Arc::new(signer),
     );
     wallet.add_signer(
-      KeychainKind::Internal,
-      SignerOrdering(100),
-      Arc::new(change_signer)
+        KeychainKind::Internal,
+        SignerOrdering(100),
+        Arc::new(change_signer),
     );
 
     let mut builder = wallet.build_tx();

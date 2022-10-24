@@ -2,17 +2,23 @@ use std::error::Error;
 use std::str::FromStr;
 
 use bdk::{
-    bitcoin::{hashes::hex::{FromHex, ToHex}, util::bip32::{ExtendedPrivKey, Fingerprint, ExtendedPubKey}, secp256k1::Secp256k1},
+    bitcoin::{
+        hashes::hex::{FromHex, ToHex},
+        secp256k1::Secp256k1,
+        util::bip32::{ExtendedPubKey, Fingerprint},
+    },
     keys::{
         bip39::{Language, Mnemonic, WordCount},
-        GeneratableKey, GeneratedKey, DerivableKey,
+        DerivableKey, GeneratableKey, GeneratedKey,
     },
-    miniscript::Segwitv0, descriptor::ExtendedDescriptor, template::{Bip84Public, Bip84}, KeychainKind, Wallet,
+    miniscript::Segwitv0,
+    template::{Bip84, Bip84Public},
+    KeychainKind,
 };
 
 pub mod send_bitcoin;
-pub mod watchonly;
 pub mod wallet_backup;
+pub mod watchonly;
 
 pub(crate) fn bdk_to_electrsd_addr(
     bdk: bdk::bitcoin::Address,
@@ -40,34 +46,25 @@ pub fn generate_random_ext_privkey(
 }
 
 pub fn get_bip84_templates<K: DerivableKey<Segwitv0> + Clone>(xprv: &K) -> (Bip84<K>, Bip84<K>) {
-  (Bip84(xprv.clone(), KeychainKind::External), Bip84(xprv.clone(), KeychainKind::Internal))
+    (
+        Bip84(xprv.clone(), KeychainKind::External),
+        Bip84(xprv.clone(), KeychainKind::Internal),
+    )
 }
 
 pub fn get_bip84_public_descriptor_templates(
-  xpub: ExtendedPubKey,
-  master_fingerprint: Fingerprint
+    xpub: ExtendedPubKey,
+    master_fingerprint: Fingerprint,
 ) -> (Bip84Public<ExtendedPubKey>, Bip84Public<ExtendedPubKey>) {
-    let d = Bip84Public(
-        xpub.clone(),
-        master_fingerprint,
-        KeychainKind::External,
-    );
-    let change_d = Bip84Public(
-        xpub.clone(),
-        master_fingerprint,
-        KeychainKind::Internal,
-    );
+    let d = Bip84Public(xpub.clone(), master_fingerprint, KeychainKind::External);
+    let change_d = Bip84Public(xpub.clone(), master_fingerprint, KeychainKind::Internal);
     (d, change_d)
 }
 
-
-pub fn get_wallet_name<K: DerivableKey<Segwitv0> + Clone>(master_xprv: &K) -> Result<String, bdk::Error> {
+pub fn get_wallet_name<K: DerivableKey<Segwitv0> + Clone>(
+    master_xprv: &K,
+) -> Result<String, bdk::Error> {
     let secp = Secp256k1::new();
     let (d, c) = get_bip84_templates(master_xprv);
-    bdk::wallet::wallet_name_from_descriptor(
-        d,
-        Some(c),
-        bdk::bitcoin::Network::Regtest,
-        &secp,
-    )
+    bdk::wallet::wallet_name_from_descriptor(d, Some(c), bdk::bitcoin::Network::Regtest, &secp)
 }
