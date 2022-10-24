@@ -16,3 +16,6 @@ name = "wallet_operation_test"
 bdk = { version = "0.23.0", features = ["all-keys", "key-value-db", "rpc", "hardware-signer" ], default-features = false }
 clap = { version = "4.0.15", features = ["derive", "env"] }
 electrsd = { version = "0.21.1", features = ["bitcoind_22_0"] }
+secrecy = "0.8.0"
+serde = { version = "1.0.145", features = ["derive"] }
+serde_json = "1.0.87"
