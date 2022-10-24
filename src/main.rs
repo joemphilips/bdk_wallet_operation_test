@@ -68,7 +68,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let dummy_signer = {
                 let signer = DescriptorXKey::<ExtendedPrivKey> {
                     origin: Some((fingerprint, path.clone())),
-                    xkey: backup.wif.derive_priv(&secp, &path)?,
+                    xkey: backup.master.derive_priv(&secp, &path)?,
                     derivation_path: DerivationPath::from_str("m/0").unwrap(),
                     wildcard: Wildcard::Unhardened,
                 };
@@ -81,7 +81,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let dummy_change_signer = {
                 let signer = DescriptorXKey::<ExtendedPrivKey> {
                     origin: Some((fingerprint, path.clone())),
-                    xkey: backup.wif.derive_priv(&secp, &path)?,
+                    xkey: backup.master.derive_priv(&secp, &path)?,
                     derivation_path: DerivationPath::from_str("m/1").unwrap(),
                     wildcard: Wildcard::Unhardened,
                 };

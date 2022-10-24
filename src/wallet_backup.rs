@@ -20,7 +20,7 @@ pub const BIP84_HARDENED_PATH: &'static str = "m/84'/0'/0'";
 /// Serializable information for recovering a wallet in arbitrary descriptor-based wallet.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct WalletBackupData {
-    pub wif: ExtendedPrivKey,
+    pub master: ExtendedPrivKey,
     pub descriptors: Vec<DescriptorPair>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -77,17 +77,18 @@ impl WalletBackupData {
         let secp = Secp256k1::new();
         let seed = generate_random_ext_privkey()?;
         let path = DerivationPath::from_str(BIP84_HARDENED_PATH)?;
-        let wif = seed
+        let master = seed
             .clone()
             .into_extended_key()?
             .into_xprv(network)
             .unwrap();
-        let xprv = wif.derive_priv(&secp, &path)?;
+
+        let xprv = master.derive_priv(&secp, &path)?;
         let xpub: ExtendedPubKey = ExtendedPubKey::from_priv(&secp, &xprv);
         let (desc, change_desc) =
-            get_bip84_public_descriptor_templates(xpub, wif.fingerprint(&secp));
+            get_bip84_public_descriptor_templates(xpub, master.fingerprint(&secp));
         Ok(WalletBackupData {
-            wif,
+            master,
             descriptors: vec![(desc.build(network)?.0, Some(change_desc.build(network)?.0))],
             wallet_name: Some(get_wallet_name(&seed)?),
         })
@@ -95,11 +96,11 @@ impl WalletBackupData {
 
     pub fn get_wallet_name(&mut self) -> String {
         self.wallet_name
-            .get_or_insert_with(|| get_wallet_name(&self.wif).unwrap())
+            .get_or_insert_with(|| get_wallet_name(&self.master).unwrap())
             .to_string()
     }
 
     pub fn get_fingerprint(&self, ctx: &Secp256k1<All>) -> Fingerprint {
-        self.wif.fingerprint(ctx)
+        self.master.fingerprint(ctx)
     }
 }
